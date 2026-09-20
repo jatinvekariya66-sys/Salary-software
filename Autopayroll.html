@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger — Payroll</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF8F3;
+    --paper-alt:#F1ECE0;
+    --ink:#1B2027;
+    --ink-soft:#5B6270;
+    --ink-faint:#9A9E8;
+    --line:#D9D3C3;
+    --line-strong:#C6BFA8;
+    --green:#2F5D50;
+    --green-soft:#E4EBE6;
+    --gold:#A9812F;
+    --gold-soft:#F1E7CE;
+    --rust:#A2402E;
+    --rust-soft:#F3E3DE;
+    --radius:3px;
+    --shadow:0 1px 2px rgba(27,32,39,0.06), 0 4px 14px rgba(27,32,39,0.05);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;margin:0;letter-spacing:-0.01em;}
+  .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+  ::selection{background:var(--gold-soft);}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+  button:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+
+  /* ---------- Login ---------- */
+  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .ledger-card{background:var(--paper);border:1px solid var(--line-strong);border-radius:var(--radius);box-shadow:var(--shadow);padding:40px;max-width:400px;width:100%;position:relative;}
+  .ledger-card::before{content:'';position:absolute;top:0;left:28px;right:28px;height:1px;background:repeating-linear-gradient(90deg,var(--line-strong) 0 6px, transparent 6px 10px);}
+  .seal{width:52px;height:52px;border:2px solid var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:20px;position:relative;}
+  .seal::after{content:'';position:absolute;inset:5px;border:1px dashed var(--green);border-radius:50%;}
+  .seal span{font-family:'Fraunces',serif;font-weight:600;color:var(--green);font-size:20px;}
+  .login-title{font-size:26px;margin-bottom:6px;}
+  .login-sub{color:var(--ink-soft);font-size:13.5px;margin-bottom:26px;line-height:1.5;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:6px;font-weight:600;}
+  .field input, .field select{width:100%;padding:11px 12px;border:1px solid var(--line-strong);border-radius:var(--radius);background:#fff;font-size:14.5px;color:var(--ink);}
+  .btn{border:none;border-radius:var(--radius);padding:11px 18px;font-size:14px;font-weight:600;transition:transform .08s ease, background .15s ease;}
+  .btn:active{transform:scale(0.98);}
+  .btn-primary{background:var(--green);color:#fff;width:100%;}
+  .btn-primary:hover{background:#264d43;}
+  .btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line-strong);}
+  .btn-ghost:hover{background:var(--paper-alt);}
+  .btn-danger{background:var(--rust-soft);color:var(--rust);}
+  .btn-danger:hover{background:#eccfc7;}
+  .err{color:var(--rust);font-size:13px;margin-top:10px;min-height:16px;}
+  .hint{font-size:12px;color:var(--ink-faint);margin-top:14px;line-height:1.5;}
+
+  /* ---------- Shell ---------- */
+  #app{display:none;min-height:100vh;}
+  .shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh;}
+  .sidebar{background:var(--ink);color:#EDE9DD;padding:26px 18px;display:flex;flex-direction:column;}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:36px;padding:0 6px;}
+  .brand .mark{width:30px;height:30px;border:1.5px solid #EDE9DD;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:14px;flex-shrink:0;}
+  .brand .name{font-family:'Fraunces',serif;font-size:17px;font-weight:600;}
+  nav{display:flex;flex-direction:column;gap:2px;flex:1;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius);color:#C9C4B4;font-size:14px;font-weight:500;background:transparent;border:none;text-align:left;width:100%;}
+  .nav-item:hover{background:rgba(255,255,255,0.06);color:#EDE9DD;}
+  .nav-item.active{background:rgba(255,255,255,0.1);color:#fff;}
+  .nav-item .n{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8B8A79;width:16px;}
+  .sidebar-foot{border-top:1px solid rgba(255,255,255,0.12);padding-top:14px;margin-top:14px;}
+  .logout{color:#B7876B;font-size:13px;background:none;border:none;padding:8px 12px;width:100%;text-align:left;border-radius:var(--radius);}
+  .logout:hover{background:rgba(255,255,255,0.06);}
+
+  .main{padding:32px 40px;max-width:1180px;}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:28px;flex-wrap:wrap;gap:14px;}
+  .page-head h1{font-size:28px;}
+  .page-head .sub{color:var(--ink-soft);font-size:14px;margin-top:4px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:6px;font-weight:600;}
+
+  /* stat strip */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:32px;}
+  .stat{background:var(--paper);padding:18px 20px;}
+  .stat .label{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600;margin-bottom:8px;}
+  .stat .value{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;}
+  .stat .value.green{color:var(--green);}
+  .stat .value.gold{color:var(--gold);}
+  .stat .value.rust{color:var(--rust);}
+
+  /* card / table */
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:24px;}
+  .card-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);}
+  .card-head h3{font-size:16px;}
+  table{width:100%;border-collapse:collapse;}
+  thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--paper-alt);}
+  tbody td{padding:13px 20px;border-bottom:1px dotted var(--line-strong);font-size:14px;vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:rgba(169,129,47,0.045);}
+  .num{font-family:'IBM Plex Mono',monospace;text-align:right;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:600;letter-spacing:.02em;}
+  .pill.paid{background:var(--green-soft);color:var(--green);}
+  .pill.pending{background:var(--gold-soft);color:var(--gold);}
+  .pill.processing{background:#E4E9F0;color:#3A5A8C;}
+  .pill.inactive{background:#EEE;color:var(--ink-faint);}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end;}
+  .icon-btn{background:none;border:1px solid var(--line-strong);border-radius:var(--radius);padding:5px 10px;font-size:12px;color:var(--ink-soft);}
+  .icon-btn:hover{background:var(--paper-alt);color:var(--ink);}
+  .icon-btn.paid-btn{border-color:var(--green);color:var(--green);}
+  .icon-btn.paid-btn:hover{background:var(--green-soft);}
+  .empty{padding:48px 20px;text-align:center;color:var(--ink-faint);}
+  .empty .big{font-family:'Fraunces',serif;font-size:17px;color:var(--ink-soft);margin-bottom:6px;}
+
+  .btn-row{display:flex;gap:10px;}
+  .btn-sm{padding:8px 14px;font-size:13px;}
+
+  /* modal */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(27,32,39,0.45);align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto;z-index:50;}
+  .overlay.show{display:flex;}
+  .modal{background:var(--paper);border-radius:var(--radius);max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25);}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line);}
+  .modal-head h3{font-size:17px;}
+  .modal-close{background:none;border:none;font-size:20px;color:var(--ink-soft);line-height:1;}
+  .modal-body{padding:22px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .modal-foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;}
+
+  /* payslip */
+  .payslip{background:#fff;border:1px solid var(--line-strong);padding:36px;position:relative;overflow:hidden;}
+  .payslip-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:20px;}
+  .payslip-head h2{font-size:22px;}
+  .payslip-head .meta{text-align:right;font-size:12.5px;color:var(--ink-soft);line-height:1.6;}
+  .payslip-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:22px;}
+  .payslip-block .k{font-size:11px;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.05em;margin-bottom:4px;}
+  .payslip-block .v{font-size:14.5px;font-weight:500;}
+  .line-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dotted var(--line-strong);font-size:14px;}
+  .line-item.total{border-top:2px solid var(--ink);border-bottom:none;margin-top:6px;padding-top:12px;font-weight:700;font-size:16.5px;}
+  .stamp{position:absolute;bottom:36px;right:44px;width:110px;height:110px;border:3px solid var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;transform:rotate(-14deg);opacity:0.88;}
+  .stamp::after{content:'';position:absolute;inset:8px;border:1px dashed var(--green);border-radius:50%;}
+  .stamp span{font-family:'Fraunces',serif;font-weight:700;color:var(--green);font-size:17px;letter-spacing:.03em;}
+
+  @media print{
+    .sidebar, .page-head .btn-row, .no-print{display:none !important;}
+    .shell{display:block;}
+    .main{padding:0;max-width:none;}
+    body{background:#fff;}
+  }
+  @media (max-width:820px){
+    .shell{grid-template-columns:1fr;}
+    .sidebar{flex-direction:row;overflow-x:auto;align-items:center;padding:14px;}
+    .brand{margin-bottom:0;margin-right:16px;}
+    nav{flex-direction:row;}
+    .sidebar-foot{display:none;}
+    .main{padding:20px;}
+    .stats{grid-template-columns:1fr 1fr;}
+    .grid2{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="ledger-card">
+    <div class="seal"><span>S</span></div>
+    <div id="loginTitle" class="login-title">Set your passcode</div>
+    <div id="loginSub" class="login-sub">This unlocks payroll for your business on this device. Pick something only you know.</div>
+    <div class="field">
+      <label for="pass1">Passcode</label>
+      <input type="password" id="pass1" placeholder="••••••••" autocomplete="off">
+    </div>
+    <div class="field" id="pass2Field">
+      <label for="pass2">Confirm passcode</label>
+      <input type="password" id="pass2" placeholder="••••••••" autocomplete="off">
+    </div>
+    <button class="btn btn-primary" id="loginBtn">Continue</button>
+    <div class="err" id="loginErr"></div>
+    <div class="hint">Stored on this device only, in your private workspace storage. It's a basic lock for a shared computer — not encryption, so don't rely on it for sensitive banking data.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand"><div class="mark">S</div><div class="name">Shiv Impex</div></div>
+      <nav>
+        <button class="nav-item active" data-page="dashboard"><span class="n">01</span>Dashboard</button>
+        <button class="nav-item" data-page="employees"><span class="n">02</span>Employees</button>
+        <button class="nav-item" data-page="run"><span class="n">03</span>Run Payroll</button>
+        <button class="nav-item" data-page="history"><span class="n">04</span>History</button>
+      </nav>
+      <div class="sidebar-foot">
+        <button class="logout" id="autopaySettingsBtn" style="color:#C9C4B4;">Autopay settings</button>
+        <button class="logout" id="logoutBtn">Lock workspace</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- DASHBOARD -->
+      <section id="page-dashboard">
+        <div class="page-head">
+          <div><div class="eyebrow">Overview</div><h1>Dashboard</h1><div class="sub" id="todayLabel"></div></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="label">Active employees</div><div class="value" id="statEmployees">0</div></div>
+          <div class="stat"><div class="label">This month's payroll</div><div class="value gold" id="statMonthTotal">—</div></div>
+          <div class="stat"><div class="label">Paid</div><div class="value green" id="statPaid">0</div></div>
+          <div class="stat"><div class="label">Pending</div><div class="value rust" id="statPending">0</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Latest run</h3></div>
+          <div id="latestRunWrap"></div>
+        </div>
+      </section>
+
+      <!-- EMPLOYEES -->
+      <section id="page-employees" style="display:none;">
+        <div class="page-head">
+          <div><div class="eyebrow">Team</div><h1>Employees</h1><div class="sub">Base pay, allowances and fixed deductions per employee.</div></div>
+          <div class="btn-row"><button class="btn btn-primary btn-sm" id="addEmployeeBtn">+ Add employee</button></div>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>Name</th><th>Role</th><th class="num">Base</th><th class="num">Allowances</th><th class="num">Deductions</th><th class="num">Net / mo</th><th>Status</th><th></th></tr></thead>
+            <tbody id="employeeRows"></tbody>
+          </table>
+          <div class="empty" id="employeeEmpty" style="display:none;">
+            <div class="big">No employees yet</div>
+            Add your first employee to start running payroll.
+          </div>
+        </div>
+      </section>
+
+      <!-- RUN PAYROLL -->
+      <section id="page-run" style="display:none;">
+        <div class="page-head">
+          <div><div class="eyebrow">Pay run</div><h1>Run Payroll</h1><div class="sub">Choose a period, adjust one-off bonuses or deductions, then generate payslips.</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h3>Period</h3>
+            <div class="btn-row">
+              <select id="runMonth"></select>
+              <input type="number" id="runYear" class="mono" style="width:90px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:3px;">
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Name</th><th class="num">Base pay</th><th class="num">Bonus (+)</th><th class="num">Adjustment (−)</th><th class="num">Net pay</th></tr></thead>
+            <tbody id="runRows"></tbody>
+          </table>
+          <div class="empty" id="runEmpty" style="display:none;"><div class="big">No active employees</div>Add employees first.</div>
+        </div>
+        <div class="btn-row no-print">
+          <button class="btn btn-primary" id="generateRunBtn">Generate payslips for this period</button>
+        </div>
+      </section>
+
+      <!-- HISTORY -->
+      <section id="page-history" style="display:none;">
+        <div class="page-head">
+          <div><div class="eyebrow">Records</div><h1>Payroll History</h1><div class="sub">Every run you've generated, with payment status.</div></div>
+          <div class="btn-row">
+            <input type="text" id="historySearch" placeholder="Search employee…" class="mono" style="padding:8px 10px;border:1px solid var(--line-strong);border-radius:3px;width:180px;">
+            <select id="historyYear" style="padding:8px 10px;border:1px solid var(--line-strong);border-radius:3px;"></select>
+          </div>
+        </div>
+        <div id="historyList"></div>
+        <div class="empty" id="historyEmpty" style="display:none;"><div class="big">No payroll runs yet</div>Generate your first run from the Run Payroll tab.</div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- Autopay settings modal -->
+<div class="overlay" id="autopayOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3>Autopay settings</h3><button class="modal-close" id="autopayModalClose">×</button></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Server URL</label>
+        <input id="autopayUrl" placeholder="http://localhost:4000">
+      </div>
+      <div class="field">
+        <label>Run secret</label>
+        <input id="autopaySecret" type="password" placeholder="same value as RUN_TRIGGER_SECRET in .env">
+      </div>
+      <div class="hint">This points the app at your own Cashfree autopay server (see the README that came with it). The secret is stored only on this device.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" id="autopayCancelBtn">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="autopaySaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Employee modal -->
+<div class="overlay" id="empOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="empModalTitle">Add employee</h3><button class="modal-close" id="empModalClose">×</button></div>
+    <div class="modal-body">
+      <div class="grid2">
+        <div class="field"><label>Full name</label><input id="empName" placeholder="Asha Patel"></div>
+        <div class="field"><label>Role / designation</label><input id="empRole" placeholder="Store manager"></div>
+        <div class="field"><label>Base monthly salary</label><input id="empBase" type="number" min="0" placeholder="35000"></div>
+        <div class="field"><label>Allowances (HRA, other) / mo</label><input id="empAllow" type="number" min="0" placeholder="4000"></div>
+        <div class="field"><label>Fixed deductions (tax, PF) / mo</label><input id="empDeduct" type="number" min="0" placeholder="1200"></div>
+        <div class="field"><label>Bank account number</label><input id="empAccNo" placeholder="000123456789"></div>
+        <div class="field"><label>IFSC code</label><input id="empIfsc" placeholder="HDFC0001234" style="text-transform:uppercase;"></div>
+      </div>
+      <div class="field" style="margin-top:2px;">
+        <label><input type="checkbox" id="empActive" checked style="width:auto;margin-right:6px;"> Active — include in payroll runs</label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" id="empDeleteBtn" style="display:none;margin-right:auto;">Remove employee</button>
+      <button class="btn btn-ghost btn-sm" id="empCancelBtn">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="empSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payslip modal -->
+<div class="overlay" id="slipOverlay">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-head no-print"><h3>Payslip</h3><button class="modal-close" id="slipModalClose">×</button></div>
+    <div class="modal-body">
+      <div class="payslip" id="payslipContent"></div>
+    </div>
+    <div class="modal-foot no-print">
+      <button class="btn btn-ghost btn-sm" id="slipPrintBtn">Print / save PDF</button>
+      <button class="btn btn-primary btn-sm" id="slipCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const currency = n => '₹' + Number(n||0).toLocaleString('en-IN', {maximumFractionDigits:0});
+  const uid = () => Math.random().toString(36).slice(2,10);
+
+  let employees = [];
+  let runs = [];
+
+  async function loadAll(){
+    try{ const v = localStorage.getItem('payroll-employees'); employees = v ? JSON.parse(v) : []; }catch(e){ employees = []; }
+    try{ const v = localStorage.getItem('payroll-runs'); runs = v ? JSON.parse(v) : []; }catch(e){ runs = []; }
+  }
+  async function saveEmployees(){ try{ localStorage.setItem('payroll-employees', JSON.stringify(employees)); }catch(e){console.error(e);} }
+  async function saveRuns(){ try{ localStorage.setItem('payroll-runs', JSON.stringify(runs)); }catch(e){console.error(e);} }
+
+  // ---------- AUTH ----------
+  const loginScreen = document.getElementById('loginScreen');
+  const appEl = document.getElementById('app');
+  const pass1 = document.getElementById('pass1');
+  const pass2 = document.getElementById('pass2');
+  const pass2Field = document.getElementById('pass2Field');
+  const loginTitle = document.getElementById('loginTitle');
+  const loginSub = document.getElementById('loginSub');
+  const loginErr = document.getElementById('loginErr');
+  const loginBtn = document.getElementById('loginBtn');
+
+  let existingPass = null;
+  async function initAuth(){
+    try{
+      existingPass = localStorage.getItem('payroll-passcode');
+    }catch(e){ existingPass = null; }
+    if(existingPass){
+      loginTitle.textContent = 'Enter your passcode';
+      loginSub.textContent = 'Unlock your payroll workspace.';
+      pass2Field.style.display = 'none';
+      loginBtn.textContent = 'Unlock';
+    } else {
+      loginTitle.textContent = 'Set your passcode';
+      loginSub.textContent = 'This unlocks payroll for your business on this device.';
+      pass2Field.style.display = 'block';
+      loginBtn.textContent = 'Create & continue';
+    }
+  }
+  loginBtn.addEventListener('click', async ()=>{
+    loginErr.textContent = '';
+    const v1 = pass1.value.trim();
+    if(!v1){ loginErr.textContent = 'Enter a passcode.'; return; }
+    if(existingPass){
+      if(v1 !== existingPass){ loginErr.textContent = 'Incorrect passcode.'; return; }
+      await enterApp();
+    } else {
+      const v2 = pass2.value.trim();
+      if(v1.length < 4){ loginErr.textContent = 'Use at least 4 characters.'; return; }
+      if(v1 !== v2){ loginErr.textContent = 'Passcodes do not match.'; return; }
+      try{ localStorage.setItem('payroll-passcode', v1); }catch(e){}
+      await enterApp();
+    }
+  });
+  [pass1,pass2].forEach(el=>el.addEventListener('keydown', e=>{ if(e.key==='Enter') loginBtn.click(); }));
+
+  document.getElementById('logoutBtn').addEventListener('click', ()=>{
+    appEl.style.display = 'none';
+    loginScreen.style.display = 'flex';
+    pass1.value=''; pass2.value='';
+    initAuth();
+  });
+
+  async function enterApp(){
+    await loadAll();
+    loginScreen.style.display = 'none';
+    appEl.style.display = 'block';
+    document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+    setupRunPeriodDefaults();
+    renderAll();
+  }
+
+  // ---------- AUTOPAY SETTINGS ----------
+  const autopayOverlay = document.getElementById('autopayOverlay');
+  const autopayUrl = document.getElementById('autopayUrl');
+  const autopaySecret = document.getElementById('autopaySecret');
+  function loadAutopayConfig(){
+    try{ return JSON.parse(localStorage.getItem('autopay-config')||'{}'); }catch(e){ return {}; }
+  }
+  function saveAutopayConfig(cfg){
+    try{ localStorage.setItem('autopay-config', JSON.stringify(cfg)); }catch(e){}
+  }
+  document.getElementById('autopaySettingsBtn').addEventListener('click', ()=>{
+    const cfg = loadAutopayConfig();
+    autopayUrl.value = cfg.url || '';
+    autopaySecret.value = cfg.secret || '';
+    autopayOverlay.classList.add('show');
+  });
+  document.getElementById('autopayModalClose').addEventListener('click', ()=>autopayOverlay.classList.remove('show'));
+  document.getElementById('autopayCancelBtn').addEventListener('click', ()=>autopayOverlay.classList.remove('show'));
+  document.getElementById('autopaySaveBtn').addEventListener('click', ()=>{
+    saveAutopayConfig({ url: autopayUrl.value.trim().replace(/\/$/,''), secret: autopaySecret.value.trim() });
+    autopayOverlay.classList.remove('show');
+  });
+
+  async function sendToAutopay(run){
+    const cfg = loadAutopayConfig();
+    if(!cfg.url || !cfg.secret){
+      alert('Set your autopay server URL and run secret first — click "Autopay settings" in the sidebar.');
+      return;
+    }
+    const missing = run.entries.filter(e => !e.accountNumber || !e.ifsc);
+    const ready = run.entries.filter(e => e.accountNumber && e.ifsc && e.status !== 'paid' && e.status !== 'processing');
+    if(missing.length){
+      alert(`${missing.length} employee(s) are missing bank details and will be skipped: ${missing.map(e=>e.name).join(', ')}.`);
+    }
+    if(ready.length === 0){ alert('Nothing to send — everyone in this run is already paid, processing, or missing bank details.'); return; }
+
+    const periodLabel = `${run.year}-${String(run.month+1).padStart(2,'0')}`;
+    try{
+      const res = await fetch(`${cfg.url}/api/payroll/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-run-secret': cfg.secret },
+        body: JSON.stringify({
+          periodLabel,
+          employees: ready.map(e => ({ employeeId: e.employeeId, name: e.name, accountNumber: e.accountNumber, ifsc: e.ifsc, amount: e.net }))
+        })
+      });
+      const data = await res.json();
+      if(!res.ok){ alert(`Autopay server error: ${data.error || res.statusText}`); return; }
+
+      let submitted = 0, failed = [];
+      data.results.forEach(r => {
+        const entry = run.entries.find(e => e.employeeId === r.employeeId);
+        if(!entry) return;
+        if(r.status === 'submitted'){ entry.status = 'processing'; entry.transferId = r.transferId; submitted++; }
+        else { failed.push(`${r.name}: ${r.error}`); }
+      });
+      await saveRuns();
+      renderAll();
+      renderHistory();
+      let msg = `${submitted} transfer(s) submitted to Cashfree for processing.`;
+      if(failed.length) msg += `\n\nFailed:\n${failed.join('\n')}`;
+      alert(msg);
+    }catch(err){
+      alert(`Could not reach the autopay server at ${cfg.url}. Make sure it's running and the URL is correct.\n\n${err.message}`);
+    }
+  }
+
+  async function checkAutopayStatus(run, entry){
+    const cfg = loadAutopayConfig();
+    if(!cfg.url || !cfg.secret){ alert('Set your autopay server URL and run secret first.'); return; }
+    try{
+      const res = await fetch(`${cfg.url}/api/payroll/status/${entry.transferId}`, {
+        headers: { 'x-run-secret': cfg.secret }
+      });
+      const data = await res.json();
+      if(!res.ok){ alert(`Status check failed: ${data.error || res.statusText}`); return; }
+      const status = (data.transfer_status || data.status || '').toUpperCase();
+      if(status === 'SUCCESS'){
+        entry.status = 'paid';
+        entry.paidAt = new Date().toISOString();
+        await saveRuns();
+        renderAll();
+        renderHistory();
+        alert(`${entry.name}'s transfer succeeded and has been marked paid.`);
+      } else if(status === 'FAILED' || status === 'REVERSED'){
+        entry.status = 'pending';
+        entry.transferId = null;
+        await saveRuns();
+        renderAll();
+        renderHistory();
+        alert(`${entry.name}'s transfer failed at the bank (${status}) and has been reset to pending. Check their account details.`);
+      } else {
+        alert(`${entry.name}'s transfer is still ${status || 'processing'}. Check again shortly.`);
+      }
+    }catch(err){
+      alert(`Could not reach the autopay server.\n\n${err.message}`);
+    }
+  }
+
+  // ---------- NAV ----------
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      navItems.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      ['dashboard','employees','run','history'].forEach(p=>{
+        document.getElementById('page-'+p).style.display = (p===btn.dataset.page) ? 'block':'none';
+      });
+      if(btn.dataset.page==='run') renderRunPage();
+      if(btn.dataset.page==='history') renderHistory();
+      if(btn.dataset.page==='dashboard') renderDashboard();
+      if(btn.dataset.page==='employees') renderEmployees();
+    });
+  });
+
+  // ---------- EMPLOYEES ----------
+  const empOverlay = document.getElementById('empOverlay');
+  const empModalTitle = document.getElementById('empModalTitle');
+  const empName = document.getElementById('empName');
+  const empRole = document.getElementById('empRole');
+  const empBase = document.getElementById('empBase');
+  const empAllow = document.getElementById('empAllow');
+  const empDeduct = document.getElementById('empDeduct');
+  const empAccNo = document.getElementById('empAccNo');
+  const empIfsc = document.getElementById('empIfsc');
+  const empActive = document.getElementById('empActive');
+  const empDeleteBtn = document.getElementById('empDeleteBtn');
+  let editingEmpId = null;
+
+  function openEmpModal(emp){
+    editingEmpId = emp ? emp.id : null;
+    empModalTitle.textContent = emp ? 'Edit employee' : 'Add employee';
+    empName.value = emp ? emp.name : '';
+    empRole.value = emp ? emp.role : '';
+    empBase.value = emp ? emp.base : '';
+    empAllow.value = emp ? emp.allowances : '';
+    empDeduct.value = emp ? emp.deductions : '';
+    empAccNo.value = emp ? (emp.accountNumber||'') : '';
+    empIfsc.value = emp ? (emp.ifsc||'') : '';
+    empActive.checked = emp ? emp.active : true;
+    empDeleteBtn.style.display = emp ? 'inline-block' : 'none';
+    empOverlay.classList.add('show');
+  }
+  function closeEmpModal(){ empOverlay.classList.remove('show'); }
+  document.getElementById('addEmployeeBtn').addEventListener('click', ()=>openEmpModal(null));
+  document.getElementById('empModalClose').addEventListener('click', closeEmpModal);
+  document.getElementById('empCancelBtn').addEventListener('click', closeEmpModal);
+
+  document.getElementById('empSaveBtn').addEventListener('click', async ()=>{
+    const name = empName.value.trim();
+    if(!name){ empName.focus(); return; }
+    const data = {
+      name,
+      role: empRole.value.trim() || '—',
+      base: Number(empBase.value)||0,
+      allowances: Number(empAllow.value)||0,
+      deductions: Number(empDeduct.value)||0,
+      accountNumber: empAccNo.value.trim(),
+      ifsc: empIfsc.value.trim().toUpperCase(),
+      active: empActive.checked,
+    };
+    if(editingEmpId){
+      const idx = employees.findIndex(e=>e.id===editingEmpId);
+      if(idx>-1) employees[idx] = {...employees[idx], ...data};
+    } else {
+      employees.push({id: uid(), ...data});
+    }
+    await saveEmployees();
+    closeEmpModal();
+    renderAll();
+  });
+
+  document.getElementById('empDeleteBtn').addEventListener('click', async ()=>{
+    if(!editingEmpId) return;
+    employees = employees.filter(e=>e.id!==editingEmpId);
+    await saveEmployees();
+    closeEmpModal();
+    renderAll();
+  });
+
+  function renderEmployees(){
+    const rows = document.getElementById('employeeRows');
+    const empty = document.getElementById('employeeEmpty');
+    rows.innerHTML = '';
+    if(employees.length===0){ empty.style.display='block'; return; } else { empty.style.display='none'; }
+    employees.forEach(e=>{
+      const net = e.base + e.allowances - e.deductions;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(e.name)}</td>
+        <td>${escapeHtml(e.role)}</td>
+        <td class="num mono">${currency(e.base)}</td>
+        <td class="num mono">${currency(e.allowances)}</td>
+        <td class="num mono">${currency(e.deductions)}</td>
+        <td class="num mono" style="font-weight:600;">${currency(net)}</td>
+        <td><span class="pill ${e.active?'paid':'inactive'}">${e.active?'Active':'Inactive'}</span></td>
+        <td><div class="row-actions"><button class="icon-btn" data-edit="${e.id}">Edit</button></div></td>
+      `;
+      rows.appendChild(tr);
+    });
+    rows.querySelectorAll('[data-edit]').forEach(b=>{
+      b.addEventListener('click', ()=> openEmpModal(employees.find(e=>e.id===b.dataset.edit)) );
+    });
+  }
+
+  // ---------- RUN PAYROLL ----------
+  const runMonthSel = document.getElementById('runMonth');
+  const runYearInput = document.getElementById('runYear');
+  function setupRunPeriodDefaults(){
+    runMonthSel.innerHTML = MONTHS.map((m,i)=>`<option value="${i}">${m}</option>`).join('');
+    const now = new Date();
+    runMonthSel.value = now.getMonth();
+    runYearInput.value = now.getFullYear();
+  }
+  runMonthSel.addEventListener('change', renderRunPage);
+  runYearInput.addEventListener('change', renderRunPage);
+
+  function renderRunPage(){
+    const rows = document.getElementById('runRows');
+    const empty = document.getElementById('runEmpty');
+    rows.innerHTML = '';
+    const active = employees.filter(e=>e.active);
+    if(active.length===0){ empty.style.display='block'; return; } else { empty.style.display='none'; }
+    active.forEach(e=>{
+      const base = e.base + e.allowances - e.deductions;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(e.name)}</td>
+        <td class="num mono">${currency(base)}</td>
+        <td class="num"><input type="number" min="0" data-bonus="${e.id}" class="mono" style="width:90px;padding:6px 8px;border:1px solid var(--line-strong);border-radius:3px;text-align:right;" placeholder="0"></td>
+        <td class="num"><input type="number" min="0" data-adj="${e.id}" class="mono" style="width:90px;padding:6px 8px;border:1px solid var(--line-strong);border-radius:3px;text-align:right;" placeholder="0"></td>
+        <td class="num mono" style="font-weight:600;" data-net="${e.id}">${currency(base)}</td>
+      `;
+      rows.appendChild(tr);
+    });
+    rows.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('input', ()=>{
+        const id = inp.dataset.bonus || inp.dataset.adj;
+        const emp = active.find(e=>e.id===id);
+        const bonusEl = rows.querySelector(`[data-bonus="${id}"]`);
+        const adjEl = rows.querySelector(`[data-adj="${id}"]`);
+        const base = emp.base + emp.allowances - emp.deductions;
+        const net = base + (Number(bonusEl.value)||0) - (Number(adjEl.value)||0);
+        rows.querySelector(`[data-net="${id}"]`).textContent = currency(net);
+      });
+    });
+  }
+
+  document.getElementById('generateRunBtn').addEventListener('click', async ()=>{
+    const active = employees.filter(e=>e.active);
+    if(active.length===0) return;
+    const rows = document.getElementById('runRows');
+    const month = Number(runMonthSel.value);
+    const year = Number(runYearInput.value);
+    const label = MONTHS[month] + ' ' + year;
+    if(runs.some(r=>r.month===month && r.year===year)){
+      if(!confirm(`A payroll run already exists for ${label}. Generate another one for the same period?`)) return;
+    }
+    const entries = active.map(e=>{
+      const base = e.base + e.allowances - e.deductions;
+      const bonus = Number(rows.querySelector(`[data-bonus="${e.id}"]`)?.value)||0;
+      const adj = Number(rows.querySelector(`[data-adj="${e.id}"]`)?.value)||0;
+      const net = base + bonus - adj;
+      return {
+        employeeId: e.id, name: e.name, role: e.role, accountNumber: e.accountNumber, ifsc: e.ifsc,
+        base: e.base, allowances: e.allowances, deductions: e.deductions,
+        bonus, adjustment: adj, net,
+        status: 'pending', paidAt: null
+      };
+    });
+    runs.unshift({ id: uid(), month, year, label, createdAt: new Date().toISOString(), entries });
+    await saveRuns();
+    renderAll();
+    document.querySelector('[data-page="history"]').click();
+  });
+
+  // ---------- HISTORY ----------
+  const historySearch = document.getElementById('historySearch');
+  const historyYearSel = document.getElementById('historyYear');
+  historySearch.addEventListener('input', renderHistory);
+  historyYearSel.addEventListener('change', renderHistory);
+
+  function populateHistoryYears(){
+    const years = Array.from(new Set(runs.map(r=>r.year))).sort((a,b)=>b-a);
+    const current = historyYearSel.value;
+    historyYearSel.innerHTML = '<option value="">All years</option>' + years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    if(years.includes(Number(current))) historyYearSel.value = current;
+  }
+
+  function renderHistory(){
+    populateHistoryYears();
+    const wrap = document.getElementById('historyList');
+    const empty = document.getElementById('historyEmpty');
+    wrap.innerHTML = '';
+    const query = historySearch.value.trim().toLowerCase();
+    const yearFilter = historyYearSel.value;
+
+    let filteredRuns = runs
+      .filter(run => !yearFilter || run.year === Number(yearFilter))
+      .map(run => {
+        if(!query) return run;
+        const matches = run.entries.filter(e => e.name.toLowerCase().includes(query));
+        return matches.length ? {...run, entries: matches} : null;
+      })
+      .filter(Boolean);
+
+    if(runs.length===0){ empty.innerHTML = '<div class="big">No payroll runs yet</div>Generate your first run from the Run Payroll tab.'; empty.style.display='block'; return; }
+    if(filteredRuns.length===0){ empty.innerHTML = '<div class="big">No matching runs</div>Try a different name or year.'; empty.style.display='block'; return; }
+    empty.style.display='none';
+
+    filteredRuns.forEach(run=>{
+      const paidCount = run.entries.filter(e=>e.status==='paid').length;
+      const total = run.entries.reduce((s,e)=>s+e.net,0);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="card-head">
+          <div>
+            <h3>${run.label}</h3>
+            <div class="sub" style="font-size:13px;color:var(--ink-soft);">${paidCount}/${run.entries.length} paid · <span class="mono">${currency(total)}</span> total</div>
+          </div>
+          <div class="btn-row">
+            <button class="icon-btn" data-exportrun="${run.id}">Export bank file</button>
+            <button class="icon-btn" data-exportautopay="${run.id}">Export for autopay</button>
+            <button class="icon-btn" style="color:var(--green);border-color:var(--green);" data-sendautopay="${run.id}">Send to autopay</button>
+            <button class="icon-btn" style="color:var(--rust);border-color:var(--rust-soft);" data-delrun="${run.id}">Delete run</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th class="num">Net pay</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+          ${run.entries.map(e=>`
+            <tr>
+              <td>${escapeHtml(e.name)}</td>
+              <td class="num mono">${currency(e.net)}</td>
+              <td><span class="pill ${e.status==='paid'?'paid':(e.status==='processing'?'processing':'pending')}">${e.status==='paid'?'Paid':(e.status==='processing'?'Processing':'Pending')}</span></td>
+              <td><div class="row-actions">
+                <button class="icon-btn" data-slip="${run.id}|${e.employeeId}">Payslip</button>
+                ${e.status==='processing' ? `<button class="icon-btn" data-checkstatus="${run.id}|${e.employeeId}">Check status</button>` : ''}
+                ${e.status==='pending' ? `<button class="icon-btn paid-btn" data-markpaid="${run.id}|${e.employeeId}">Mark paid</button>` : ''}
+                <button class="icon-btn" style="color:var(--rust);" data-delentry="${run.id}|${e.employeeId}">Remove</button>
+              </div></td>
+            </tr>
+          `).join('')}
+          </tbody>
+        </table>
+      `;
+      wrap.appendChild(card);
+    });
+    wrap.querySelectorAll('[data-markpaid]').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        const [runId, empId] = b.dataset.markpaid.split('|');
+        const run = runs.find(r=>r.id===runId);
+        const entry = run.entries.find(e=>e.employeeId===empId);
+        entry.status = 'paid';
+        entry.paidAt = new Date().toISOString();
+        await saveRuns();
+        renderAll();
+        renderHistory();
+      });
+    });
+    wrap.querySelectorAll('[data-slip]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const [runId, empId] = b.dataset.slip.split('|');
+        openPayslip(runId, empId);
+      });
+    });
+    wrap.querySelectorAll('[data-exportrun]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const runId = b.dataset.exportrun;
+        const run = runs.find(r=>r.id===runId);
+        exportBankFile(run);
+      });
+    });
+    wrap.querySelectorAll('[data-exportautopay]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const runId = b.dataset.exportautopay;
+        const run = runs.find(r=>r.id===runId);
+        exportAutopayJson(run);
+      });
+    });
+    wrap.querySelectorAll('[data-sendautopay]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const runId = b.dataset.sendautopay;
+        const run = runs.find(r=>r.id===runId);
+        sendToAutopay(run);
+      });
+    });
+    wrap.querySelectorAll('[data-checkstatus]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const [runId, empId] = b.dataset.checkstatus.split('|');
+        const run = runs.find(r=>r.id===runId);
+        const entry = run.entries.find(e=>e.employeeId===empId);
+        checkAutopayStatus(run, entry);
+      });
+    });
+    wrap.querySelectorAll('[data-delrun]').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        const runId = b.dataset.delrun;
+        const run = runs.find(r=>r.id===runId);
+        if(!confirm(`Delete the entire ${run.label} payroll run? This removes all ${run.entries.length} payslips in it and can't be undone.`)) return;
+        runs = runs.filter(r=>r.id!==runId);
+        await saveRuns();
+        renderAll();
+        renderHistory();
+      });
+    });
+    wrap.querySelectorAll('[data-delentry]').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        const [runId, empId] = b.dataset.delentry.split('|');
+        const run = runs.find(r=>r.id===runId);
+        const entry = run.entries.find(e=>e.employeeId===empId);
+        if(!confirm(`Remove ${entry.name}'s payslip from ${run.label}?`)) return;
+        run.entries = run.entries.filter(e=>e.employeeId!==empId);
+        if(run.entries.length===0) runs = runs.filter(r=>r.id!==runId);
+        await saveRuns();
+        renderAll();
+        renderHistory();
+      });
+    });
+  }
+
+  function exportAutopayJson(run){
+    const missing = run.entries.filter(e => !e.accountNumber || !e.ifsc);
+    if(missing.length){
+      alert(`${missing.length} employee(s) in this run are missing an account number or IFSC code, so they can't be included: ${missing.map(e=>e.name).join(', ')}.\n\nAdd their bank details under Employees, then export again.`);
+    }
+    const ready = run.entries.filter(e => e.accountNumber && e.ifsc);
+    if(ready.length === 0) return;
+
+    const periodLabel = `${run.year}-${String(run.month+1).padStart(2,'0')}`;
+    const payload = {
+      periodLabel,
+      employees: ready.map(e => ({
+        employeeId: e.employeeId,
+        name: e.name,
+        accountNumber: e.accountNumber,
+        ifsc: e.ifsc,
+        amount: e.net
+      }))
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `autopay-${periodLabel}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportBankFile(run){
+    const missing = run.entries.filter(e => !e.accountNumber || !e.ifsc);
+    if(missing.length){
+      alert(`${missing.length} employee(s) in this run are missing an account number or IFSC code, so they can't be included in the bank file: ${missing.map(e=>e.name).join(', ')}.\n\nAdd their bank details under Employees, then re-generate or export again.`);
+    }
+    const ready = run.entries.filter(e => e.accountNumber && e.ifsc);
+    if(ready.length === 0) return;
+
+    const header = ['Beneficiary Name','Account Number','IFSC Code','Amount','Narration'];
+    const rows = ready.map(e => [
+      csvSafe(e.name),
+      csvSafe(e.accountNumber),
+      csvSafe(e.ifsc),
+      e.net,
+      csvSafe(`Salary ${run.label}`)
+    ]);
+    const csv = [header, ...rows].map(r => r.join(',')).join('\r\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bank-transfer-${run.label.replace(/\s+/g,'-').toLowerCase()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  function csvSafe(s){
+    s = String(s==null?'':s);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }
+
+  // ---------- PAYSLIP ----------
+  const slipOverlay = document.getElementById('slipOverlay');
+  function openPayslip(runId, empId){
+    const run = runs.find(r=>r.id===runId);
+    const e = run.entries.find(x=>x.employeeId===empId);
+    const content = document.getElementById('payslipContent');
+    content.innerHTML = `
+      <div class="payslip-head">
+        <div>
+          <h2>Payslip</h2>
+          <div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">${run.label}</div>
+        </div>
+        <div class="meta">
+          Issued ${new Date(run.createdAt).toLocaleDateString('en-IN')}<br>
+          Ref ${run.id.toUpperCase()}-${empId.slice(0,4).toUpperCase()}
+        </div>
+      </div>
+      <div class="payslip-grid">
+        <div class="payslip-block"><div class="k">Employee</div><div class="v">${escapeHtml(e.name)}</div></div>
+        <div class="payslip-block"><div class="k">Role</div><div class="v">${escapeHtml(e.role||'—')}</div></div>
+        <div class="payslip-block"><div class="k">Pay period</div><div class="v">${run.label}</div></div>
+        <div class="payslip-block"><div class="k">Payment account</div><div class="v">${e.accountNumber ? '••' + escapeHtml(e.accountNumber.slice(-4)) + ' · ' + escapeHtml(e.ifsc||'') : 'Not on file'}</div></div>
+      </div>
+      <div>
+        <div class="line-item"><span>Base salary</span><span class="mono">${currency(e.base)}</span></div>
+        <div class="line-item"><span>Allowances</span><span class="mono">${currency(e.allowances)}</span></div>
+        ${e.bonus ? `<div class="line-item"><span>Bonus</span><span class="mono">${currency(e.bonus)}</span></div>` : ''}
+        <div class="line-item"><span>Deductions</span><span class="mono">−${currency(e.deductions)}</span></div>
+        ${e.adjustment ? `<div class="line-item"><span>Other adjustment</span><span class="mono">−${currency(e.adjustment)}</span></div>` : ''}
+        <div class="line-item total"><span>Net pay</span><span class="mono">${currency(e.net)}</span></div>
+      </div>
+      ${e.status==='paid' ? `<div class="stamp"><span>PAID<br><span style="font-size:10px;font-weight:500;">${new Date(e.paidAt).toLocaleDateString('en-IN')}</span></span></div>` : ''}
+    `;
+    slipOverlay.classList.add('show');
+  }
+  document.getElementById('slipModalClose').addEventListener('click', ()=>slipOverlay.classList.remove('show'));
+  document.getElementById('slipCloseBtn').addEventListener('click', ()=>slipOverlay.classList.remove('show'));
+  document.getElementById('slipPrintBtn').addEventListener('click', ()=>window.print());
+
+  // ---------- DASHBOARD ----------
+  function renderDashboard(){
+    document.getElementById('statEmployees').textContent = employees.filter(e=>e.active).length;
+    const now = new Date();
+    const thisRun = runs.find(r=>r.month===now.getMonth() && r.year===now.getFullYear());
+    const monthTotal = thisRun ? thisRun.entries.reduce((s,e)=>s+e.net,0) : (employees.filter(e=>e.active).reduce((s,e)=>s+e.base+e.allowances-e.deductions,0));
+    document.getElementById('statMonthTotal').textContent = currency(monthTotal);
+    let paid=0, pending=0;
+    runs.forEach(r=>r.entries.forEach(e=>{ if(e.status==='paid') paid++; else pending++; }));
+    document.getElementById('statPaid').textContent = paid;
+    document.getElementById('statPending').textContent = pending;
+
+    const wrap = document.getElementById('latestRunWrap');
+    if(runs.length===0){
+      wrap.innerHTML = `<div class="empty"><div class="big">No payroll run yet</div>Head to Run Payroll to generate your first one.</div>`;
+      return;
+    }
+    const run = runs[0];
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>Name</th><th class="num">Net pay</th><th>Status</th></tr></thead>
+        <tbody>
+          ${run.entries.map(e=>`<tr><td>${escapeHtml(e.name)}</td><td class="num mono">${currency(e.net)}</td><td><span class="pill ${e.status==='paid'?'paid':'pending'}">${e.status==='paid'?'Paid':'Pending'}</span></td></tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s==null?'':s; return d.innerHTML; }
+
+  function renderAll(){
+    renderDashboard();
+    renderEmployees();
+    renderRunPage();
+    renderHistory();
+  }
+
+  initAuth();
+})();
+</script>
+</body>
+</html>
